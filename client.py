@@ -1,12 +1,15 @@
 import socket
 import select
 import errno
+from os import listdir
+from os.path import isfile, join
 
 HEADER_LENGTH = 10
 
 IP = "127.0.0.1"
 PORT = 1234
 my_username = input("Username: ")
+mypath = 'C:\\Users\\Adam\\Desktop\\ChatServer'
 
 # Create a socket
 # socket.AF_INET - address family, IPv4, some otehr possible are AF_INET6, AF_BLUETOOTH, AF_UNIX
@@ -25,6 +28,19 @@ username = my_username.encode('utf-8')
 username_header = f"{len(username):<{HEADER_LENGTH}}".encode('utf-8')
 client_socket.send(username_header + username)
 
+
+#Send list of your files
+files = [f for f in listdir(mypath) if isfile(join(mypath, f))]
+
+for f in files:
+    message = 'file'
+    message += f
+    
+    # Encode message to bytes, prepare header and convert to bytes, like for username above, then send
+    message = message.encode('utf-8')
+    message_header = f"{len(message):<{HEADER_LENGTH}}".encode('utf-8')
+    client_socket.send(message_header + message)
+     
 while True:
 
     # Wait for user to input a message
