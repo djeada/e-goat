@@ -1,6 +1,7 @@
 import socket
 import select
 import errno
+import sys
 from os import listdir
 from os.path import isfile, join
 
@@ -28,7 +29,6 @@ username = my_username.encode('utf-8')
 username_header = f"{len(username):<{HEADER_LENGTH}}".encode('utf-8')
 client_socket.send(username_header + username)
 
-
 #Send list of your files
 files = [f for f in listdir(mypath) if isfile(join(mypath, f))]
 
@@ -42,7 +42,7 @@ for f in files:
     client_socket.send(message_header + message)
      
 while True:
-
+    
     # Wait for user to input a message
     message = input(f'{my_username} > ')
 
@@ -80,19 +80,16 @@ while True:
             # Print message
             print(f'{username} > {message}')
 
-    except IOError as e:
-        # This is normal on non blocking connections - when there are no incoming data error is going to be raised
-        # Some operating systems will indicate that using AGAIN, and some using WOULDBLOCK error code
-        # We are going to check for both - if one of them - that's expected, means no incoming data, continue as normal
-        # If we got different error code - something happened
-        if e.errno != errno.EAGAIN and e.errno != errno.EWOULDBLOCK:
-            print('Reading error: {}'.format(str(e)))
+    #exception handling
+    except IOError as errorino:
+        if errorino.errno != errno.EAGAIN and errorino.errno != errno.EWOULDBLOCK:
+            print('Reading error: {}'.format(str(errorino)))
             sys.exit()
 
         # We just did not receive anything
         continue
 
-    except Exception as e:
-        # Any other exception - something happened, exit
-        print('Reading error: '.format(str(e)))
+    except Exception as errorino:
+        # If something unexpected happended escape 
+        print('WARNING CRITICAL ERROR: '.format(str(errorino)))
         sys.exit()

@@ -1,7 +1,11 @@
 import socket
 import select
 import string
-import itertools
+
+def find(myList, v):
+    for i, x in enumerate(myList):
+        if v in x:
+            return i
 
 HEADER_LENGTH = 10
 
@@ -42,7 +46,6 @@ print(f'Listening for connections on {IP}:{PORT}...')
 def receive_message(client_socket):
 
     try:
-
         # Receive our "header" containing message length, it's size is defined and constant
         message_header = client_socket.recv(HEADER_LENGTH)
 
@@ -130,7 +133,30 @@ while True:
                 files_list[index][0] = new_set
                 files_list[index][1] = user["data"].decode("utf-8")
                 index = index + 1
-            else:
+
+            #check if client wants to download
+            elif 'download' in message["data"].decode("utf-8"):
+                user = clients[notified_socket]
+                old_set = message["data"].decode("utf-8")
+                new_set = old_set.replace('download ', '')
+
+                pos = find(files_list, new_set)
+                
+                if pos is not None:
+                    print(f'\n found at postion {files_list[pos][1]}\n')
+                    print(f'\n {clients.items()}\n')
+                    print(f'\n {clients["data"][files_list[pos][1]]}\n')
+
+                    
+                    # Encode message to bytes, prepare header and convert to bytes, like for username above, then send
+                    message = message.encode('utf-8')
+                    message_header = f"{len(message):<{HEADER_LENGTH}}".encode('utf-8')
+                    client_socket[data][files_list[pos][1]].send(message_header + message)
+                    
+                else:
+                    print(f'\n FILE {new_set} WAS NOT FOUND \n')
+                            
+            elif 'show' in message["data"].decode("utf-8"):
                 # Get user by notified socket, so we will know who sent the message
                 user = clients[notified_socket]
 
@@ -139,8 +165,10 @@ while True:
                 
                 printable_list = files_list[:index]
                 print('\n'.join(map('\t\t '.join, printable_list)))
-                
+
                 print(f'\nReceived message from {user["data"].decode("utf-8")}: {message["data"].decode("utf-8")}')
+                
+                #print(f'\nReceived message from {user["data"].decode("utf-8")}: {message["data"].decode("utf-8")}')
 
                 # Iterate over connected clients and broadcast message
                 for client_socket in clients:
@@ -151,7 +179,7 @@ while True:
                         # Send user and message (both with their headers)
                         # We are reusing here message header sent by sender, and saved username header send by user when he connected
                         client_socket.send(user['header'] + user['data'] + message['header'] + message['data'])
-
+                      
     # It's not really necessary to have this, but will handle some socket exceptions just in case
     for notified_socket in exception_sockets:
 
@@ -160,3 +188,5 @@ while True:
 
         # Remove from our list of users
         del clients[notified_socket]
+
+
