@@ -2,12 +2,7 @@ import socket
 import select
 import string
 
-def find(myList, v):
-    for i, x in enumerate(myList):
-        if v in x:
-            return i
-
-HEADER_LENGTH = 10
+SIZE_OF_HEADER = 10
 
 IP = "127.0.0.1"
 PORT = 1234
@@ -17,37 +12,40 @@ PORT = 1234
 files_list = [["" for _ in range(2)] for _ in range(100)]
 index = 0
 
-# Create a socket
-# socket.AF_INET - address family, IPv4, some otehr possible are AF_INET6, AF_BLUETOOTH, AF_UNIX
-# socket.SOCK_STREAM - TCP, conection-based, socket.SOCK_DGRAM - UDP, connectionless, datagrams, socket.SOCK_RAW - raw IP packets
+# Create a socket, constructor accepts two arguemtns
+# first is address family (IPv4, IPv6, Blutooth or other) we want IPv4
+# second is connection protocol (socket.SOCK_STREAM - TCP, conection-based, socket.SOCK_DGRAM - UDP, connectionless, datagrams, socket.SOCK_RAW - raw IP packets
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# SO_ - socket option
-# SOL_ - socket option level
-# Sets REUSEADDR (as a socket option) to 1 on socket
+#some required configuration
 server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-# Bind, so server informs operating system that it's going to use given IP and port
-# For a server using 0.0.0.0 means to listen on all available interfaces, useful to connect locally to 127.0.0.1 and remotely to LAN interface IP
+# binding informs OS that we will use a specific socket (we have to choose ip_address and port number)
 server_socket.bind((IP, PORT))
 
-# This makes server listen to new connections
+# this makes server listen to new connections
 server_socket.listen()
 
-# List of sockets for select.select()
+print(f'Listening for connections on {IP}:{PORT}...')
+
+# list of sockets for select.select()
 sockets_list = [server_socket]
 
-# List of connected clients - socket as a key, user header and name as data
+# list of connected clients - socket as a key, user header and name as data
 clients = {}
 
-print(f'Listening for connections on {IP}:{PORT}...')
+#this function is used to search trough the list of clients
+def find(myList, v):
+    for i, x in enumerate(myList):
+        if v in x:
+            return i
 
 # Handles message receiving
 def receive_message(client_socket):
 
     try:
         # Receive our "header" containing message length, it's size is defined and constant
-        message_header = client_socket.recv(HEADER_LENGTH)
+        message_header = client_socket.recv(SIZE_OF_HEADER)
 
         # If we received no data, client gracefully closed a connection, for example using socket.close() or socket.shutdown(socket.SHUT_RDWR)
         if not len(message_header):
@@ -69,14 +67,6 @@ def receive_message(client_socket):
 
 while True:
 
-    # Calls Unix select() system call or Windows select() WinSock call with three parameters:
-    #   - rlist - sockets to be monitored for incoming data
-    #   - wlist - sockets for data to be send to (checks if for example buffers are not full and socket is ready to send some data)
-    #   - xlist - sockets to be monitored for exceptions (we want to monitor all sockets for errors, so we can use rlist)
-    # Returns lists:
-    #   - reading - sockets we received some data on (that way we don't have to check sockets manually)
-    #   - writing - sockets ready for data to be send thru them
-    #   - errors  - sockets with some exceptions
     # This is a blocking call, code execution will "wait" here and "get" notified in case any action should be taken
     read_sockets, _, exception_sockets = select.select(sockets_list, [], sockets_list)
 
@@ -144,15 +134,22 @@ while True:
                 
                 if pos is not None:
                     print(f'\n found at postion {files_list[pos][1]}\n')
-                    print(f'\n {clients.items()}\n')
-                    print(f'\n {clients["data"][files_list[pos][1]]}\n')
-
                     
-                    # Encode message to bytes, prepare header and convert to bytes, like for username above, then send
-                    message = message.encode('utf-8')
-                    message_header = f"{len(message):<{HEADER_LENGTH}}".encode('utf-8')
-                    client_socket[data][files_list[pos][1]].send(message_header + message)
-                    
+                    # Iterate over connected clients and broadcast message
+                    for client_socket in clients:
+                        # But don't sent it to sender
+                        if client_socket != notified_socket:
+                            new_mess = 'send ' + new_set
+                            new_message = new_mess.encode('utf-8')
+                            new_message_header = f"{len(new_message):<{SIZE_OF_HEADER}}".encode('utf-8')
+                            client_socket.send(new_message_header + new_message)
+                        #Sender gets special message recives after which he opens his ports
+                        else:
+                            new_mess2 = 'recive'
+                            new_message = new_mess2.encode('utf-8')
+                            new_message_header = f"{len(new_message):<{SIZE_OF_HEADER}}".encode('utf-8')
+                            client_socket.send(new_message_header + new_message)
+                            
                 else:
                     print(f'\n FILE {new_set} WAS NOT FOUND \n')
                             
@@ -167,18 +164,6 @@ while True:
                 print('\n'.join(map('\t\t '.join, printable_list)))
 
                 print(f'\nReceived message from {user["data"].decode("utf-8")}: {message["data"].decode("utf-8")}')
-                
-                #print(f'\nReceived message from {user["data"].decode("utf-8")}: {message["data"].decode("utf-8")}')
-
-                # Iterate over connected clients and broadcast message
-                for client_socket in clients:
-
-                    # But don't sent it to sender
-                    if client_socket != notified_socket:
-
-                        # Send user and message (both with their headers)
-                        # We are reusing here message header sent by sender, and saved username header send by user when he connected
-                        client_socket.send(user['header'] + user['data'] + message['header'] + message['data'])
                       
     # It's not really necessary to have this, but will handle some socket exceptions just in case
     for notified_socket in exception_sockets:
