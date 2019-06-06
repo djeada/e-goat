@@ -77,8 +77,47 @@ while True:
             message_length = int(message_header.decode('utf-8').strip())
             message = client_socket.recv(message_length).decode('utf-8')
 
-            # Print message
-            print(f'{username} > {message}')
+            print('{message}')
+            
+            if 'send' in message:
+                print('hallo')
+                new_port = 5000                # Reserve a port for your service every new transfer wants a new port or you must wait.
+                s = socket.socket()             # Create a socket object
+                s.bind((IP, new_port))          # Bind to the port
+                s.listen(5)                     # Now wait for client connection.
+                
+                while True:
+                    conn, addr = s.accept()     # Establish connection with another client.
+                    data = conn.recv(1024)
+                    print('Server received', repr(data))
+
+                    old_set = message["data"].decode("utf-8")
+                    filename = old_set.replace('send ', '')
+                    f = open(filename,'rb')
+                    l = f.read(1024)
+                    while (l):
+                       conn.send(l)
+                       print('Sent ',repr(l))
+                       l = f.read(1024)
+                    f.close()
+                    conn.close()
+            elif 'recive' in message:
+                s = socket.socket()             # Create a socket object
+                new_port = 5000                    # Reserve a port for your service every new transfer wants a new port or you must wait.
+
+                s.connect((IP, new_port))
+
+                with open('received_file', 'wb') as f:
+                    while True:
+                        print('receiving data...')
+                        data = s.recv(1024)
+                        print('data=%s', (data))
+                        if not data:
+                            break
+                        # write data to a file
+                        f.write(data)
+                f.close()
+                s.close()
 
     #exception handling
     except IOError as errorino:
