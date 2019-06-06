@@ -24,7 +24,7 @@ server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 server_socket.bind((IP, PORT))
 
 # this makes server listen to new connections
-server_socket.listen()
+server_socket.listen(1)
 
 print(f'Listening for connections on {IP}:{PORT}...')
 
